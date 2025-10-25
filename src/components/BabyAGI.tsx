@@ -17,11 +17,17 @@ import {
   Target,
   ListTodo,
   TrendingUp,
-  X
+  X,
+  Download,
+  BarChart3,
+  Loader2
 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import Analytics from './Analytics';
 
 // Types
-interface Task {
+export interface Task {
   id: string;
   title: string;
   status: 'pending' | 'executing' | 'completed';
@@ -29,15 +35,18 @@ interface Task {
   createdAt: number;
   completedAt?: number;
   result?: string;
+  category?: string;
+  estimatedTime?: string;
 }
 
-interface Objective {
+export interface Objective {
   id: string;
   title: string;
   description: string;
   tasks: Task[];
   status: 'active' | 'paused' | 'completed';
   createdAt: number;
+  aiInsights?: string;
 }
 
 interface Store {
@@ -131,28 +140,49 @@ const useStore = create<Store>()(
   )
 );
 
-// Simulated AI Task Generator
-const generateTasks = (objective: string, description: string): Task[] => {
-  const taskTemplates = [
-    { title: 'Research and gather information', priority: 1 },
-    { title: 'Define success criteria', priority: 1 },
-    { title: 'Break down into sub-components', priority: 2 },
-    { title: 'Identify required resources', priority: 2 },
-    { title: 'Create implementation plan', priority: 3 },
-    { title: 'Execute core functionality', priority: 4 },
-    { title: 'Test and validate results', priority: 5 },
-    { title: 'Document findings', priority: 6 },
-    { title: 'Optimize and refine', priority: 7 },
-    { title: 'Final review and completion', priority: 8 },
-  ];
-  
-  return taskTemplates.map((template, index) => ({
-    id: `${Date.now()}-${index}`,
-    title: `${template.title} for: ${objective}`,
-    status: 'pending' as const,
-    priority: template.priority,
-    createdAt: Date.now() + index,
-  }));
+// AI-powered Task Generator
+const generateTasksWithAI = async (objective: string, description: string): Promise<{ tasks: Task[], insights?: string }> => {
+  try {
+    const { data, error } = await supabase.functions.invoke('generate-tasks', {
+      body: { objective, description }
+    });
+
+    if (error) throw error;
+
+    if (data.error) {
+      toast.error(data.error);
+      return { tasks: [] };
+    }
+
+    const aiTasks: Task[] = data.tasks.map((task: any, index: number) => ({
+      id: `${Date.now()}-${index}`,
+      title: task.title,
+      status: 'pending' as const,
+      priority: task.priority,
+      category: task.category,
+      estimatedTime: task.estimatedTime,
+      createdAt: Date.now() + index,
+    }));
+
+    return {
+      tasks: aiTasks,
+      insights: data.insights
+    };
+  } catch (error) {
+    console.error('AI task generation failed:', error);
+    toast.error('AI generation failed, using basic tasks');
+    
+    // Fallback to basic tasks
+    const basicTasks: Task[] = [
+      { id: `${Date.now()}-0`, title: `Research and gather information for: ${objective}`, status: 'pending', priority: 1, createdAt: Date.now() },
+      { id: `${Date.now()}-1`, title: `Define success criteria for: ${objective}`, status: 'pending', priority: 2, createdAt: Date.now() + 1 },
+      { id: `${Date.now()}-2`, title: `Create implementation plan for: ${objective}`, status: 'pending', priority: 3, createdAt: Date.now() + 2 },
+      { id: `${Date.now()}-3`, title: `Execute core functionality for: ${objective}`, status: 'pending', priority: 4, createdAt: Date.now() + 3 },
+      { id: `${Date.now()}-4`, title: `Test and validate: ${objective}`, status: 'pending', priority: 5, createdAt: Date.now() + 4 },
+    ];
+    
+    return { tasks: basicTasks };
+  }
 };
 
 // Main App Component
@@ -174,6 +204,8 @@ export default function BabyAGI() {
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [expandedStats, setExpandedStats] = useState(true);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Auto-processing effect
   useEffect(() => {
@@ -210,28 +242,59 @@ export default function BabyAGI() {
     return () => clearTimeout(timer);
   }, [isProcessing, currentObjective, completeTask, pauseProcessing]);
 
-  const handleCreateObjective = () => {
+  const handleCreateObjective = async () => {
     if (!newTitle.trim()) return;
     
+    setIsGenerating(true);
     addObjective(newTitle, newDescription);
     
-    // Generate tasks after a short delay
-    setTimeout(() => {
-      const current = useStore.getState().currentObjective;
-      if (current) {
-        const tasks = generateTasks(newTitle, newDescription);
-        useStore.setState(state => ({
-          currentObjective: { ...current, tasks },
-          objectives: state.objectives.map(obj =>
-            obj.id === current.id ? { ...obj, tasks } : obj
-          ),
-        }));
+    // Generate tasks with AI
+    const current = useStore.getState().currentObjective;
+    if (current) {
+      const { tasks, insights } = await generateTasksWithAI(newTitle, newDescription);
+      
+      useStore.setState(state => ({
+        currentObjective: { ...current, tasks, aiInsights: insights },
+        objectives: state.objectives.map(obj =>
+          obj.id === current.id ? { ...obj, tasks, aiInsights: insights } : obj
+        ),
+      }));
+      
+      if (insights) {
+        toast.success('AI generated smart task breakdown!');
       }
-    }, 500);
+    }
     
+    setIsGenerating(false);
     setNewTitle('');
     setNewDescription('');
     setShowNewObjective(false);
+  };
+
+  const handleExport = () => {
+    const exportData = {
+      exportDate: new Date().toISOString(),
+      objectives: objectives.map(obj => ({
+        ...obj,
+        tasks: obj.tasks.map(t => ({
+          ...t,
+          statusText: t.status,
+          completedDate: t.completedAt ? new Date(t.completedAt).toISOString() : null
+        }))
+      }))
+    };
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `babyagi-export-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast.success('Data exported successfully!');
   };
 
   const stats = currentObjective ? {
@@ -260,18 +323,48 @@ export default function BabyAGI() {
               </div>
             </div>
             
-            <button
-              onClick={() => setShowNewObjective(true)}
-              className="bg-gradient-to-r from-primary to-accent hover:opacity-90 px-4 py-2 rounded-lg font-semibold text-sm flex items-center gap-2 transition-all"
-            >
-              <Sparkles className="w-4 h-4" />
-              New Goal
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowAnalytics(!showAnalytics)}
+                className="bg-white/10 hover:bg-white/20 px-3 py-2 rounded-lg transition-all"
+                title="Analytics"
+              >
+                <BarChart3 className="w-4 h-4" />
+              </button>
+              
+              <button
+                onClick={handleExport}
+                className="bg-white/10 hover:bg-white/20 px-3 py-2 rounded-lg transition-all"
+                title="Export Data"
+              >
+                <Download className="w-4 h-4" />
+              </button>
+              
+              <button
+                onClick={() => setShowNewObjective(true)}
+                className="bg-gradient-to-r from-primary to-accent hover:opacity-90 px-4 py-2 rounded-lg font-semibold text-sm flex items-center gap-2 transition-all"
+              >
+                <Sparkles className="w-4 h-4" />
+                New Goal
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-6 max-w-4xl">
+        {/* Analytics Panel */}
+        {showAnalytics && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-6"
+          >
+            <Analytics objectives={objectives} />
+          </motion.div>
+        )}
+
         {/* Stats Panel */}
         {currentObjective && stats && (
           <motion.div
@@ -302,6 +395,14 @@ export default function BabyAGI() {
                     <h3 className="text-lg font-bold">{currentObjective.title}</h3>
                     {currentObjective.description && (
                       <p className="text-sm text-muted-foreground">{currentObjective.description}</p>
+                    )}
+                    {currentObjective.aiInsights && (
+                      <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 mt-2">
+                        <p className="text-xs text-primary/80 flex items-start gap-2">
+                          <Sparkles className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                          <span>{currentObjective.aiInsights}</span>
+                        </p>
+                      </div>
                     )}
                     
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
@@ -408,11 +509,27 @@ export default function BabyAGI() {
                     
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
-                        <h3 className={`text-sm font-medium break-words ${
-                          task.status === 'completed' ? 'line-through text-muted-foreground' : ''
-                        }`}>
-                          {task.title}
-                        </h3>
+                        <div className="flex-1">
+                          <h3 className={`text-sm font-medium break-words ${
+                            task.status === 'completed' ? 'line-through text-muted-foreground' : ''
+                          }`}>
+                            {task.title}
+                          </h3>
+                          {(task.category || task.estimatedTime) && (
+                            <div className="flex items-center gap-2 mt-1">
+                              {task.category && (
+                                <span className="text-xs bg-white/5 px-2 py-0.5 rounded">
+                                  {task.category}
+                                </span>
+                              )}
+                              {task.estimatedTime && (
+                                <span className="text-xs text-muted-foreground">
+                                  ~{task.estimatedTime}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                         <span className="text-xs bg-primary/20 px-2 py-1 rounded-full whitespace-nowrap">
                           P{task.priority}
                         </span>
@@ -557,14 +674,25 @@ export default function BabyAGI() {
                 <div className="flex gap-2">
                   <button
                     onClick={handleCreateObjective}
-                    disabled={!newTitle.trim()}
-                    className="flex-1 bg-gradient-to-r from-primary to-accent hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg font-semibold transition-all"
+                    disabled={!newTitle.trim() || isGenerating}
+                    className="flex-1 bg-gradient-to-r from-primary to-accent hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
                   >
-                    Create & Start
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Generating AI Tasks...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        Create with AI
+                      </>
+                    )}
                   </button>
                   <button
                     onClick={() => setShowNewObjective(false)}
-                    className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-all"
+                    disabled={isGenerating}
+                    className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-all disabled:opacity-50"
                   >
                     Cancel
                   </button>
