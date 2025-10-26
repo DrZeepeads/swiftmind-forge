@@ -1,14 +1,6 @@
-Here’s a polished README.md for your project SwiftMind Forge — BabyAGI-inspired Autonomous Agent:
-
-
----
-
 # ⚙️ SwiftMind Forge
-
 **An autonomous AI-powered task agent inspired by BabyAGI — built with React, Vite, TypeScript, Zustand, and Framer Motion.**  
 SwiftMind Forge transforms your objectives into structured, executable subtasks, complete with progress analytics, persistence, and real AI reasoning.
-
-![SwiftMind Forge Preview](./public/preview.png)
 
 ---
 
