@@ -214,6 +214,11 @@ export default function BabyAGI() {
     const pendingTasks = currentObjective.tasks.filter(t => t.status === 'pending');
     if (pendingTasks.length === 0) {
       pauseProcessing();
+      
+      // Trigger reflection when all tasks are completed
+      if (currentObjective.tasks.length > 0 && currentObjective.tasks.every(t => t.status === 'completed')) {
+        handleReflection(currentObjective);
+      }
       return;
     }
     
@@ -269,6 +274,29 @@ export default function BabyAGI() {
     setNewTitle('');
     setNewDescription('');
     setShowNewObjective(false);
+  };
+  
+  const handleReflection = async (objective: Objective) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('reflect-on-objective', {
+        body: {
+          objectiveId: objective.id,
+          objectiveTitle: objective.title,
+          tasks: objective.tasks
+        }
+      });
+      
+      if (error) {
+        console.error('Reflection failed:', error);
+        return;
+      }
+      
+      if (data?.reflection) {
+        toast.success('Objective completed! Learning captured for future tasks.');
+      }
+    } catch (error) {
+      console.error('Error during reflection:', error);
+    }
   };
 
   const handleExport = () => {

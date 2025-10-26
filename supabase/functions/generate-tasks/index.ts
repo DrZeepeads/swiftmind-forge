@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
@@ -20,6 +21,21 @@ serve(async (req) => {
     }
 
     console.log('Generating tasks for objective:', objective);
+    
+    // Get learned insights from database
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    const { data: insights } = await supabase
+      .from('learned_insights')
+      .select('*')
+      .order('confidence_score', { ascending: false })
+      .limit(5);
+    
+    const historicalContext = insights && insights.length > 0
+      ? '\n\nHistorical Learning (use this to adjust estimates):\n' + insights.map(i => `- ${i.insight_text}`).join('\n')
+      : '';
 
     const systemPrompt = `You are an AI task planning assistant. Your role is to break down objectives into actionable, specific tasks.
 
@@ -30,7 +46,7 @@ IMPORTANT RULES:
 4. Assign priority 1-10 (1=highest, 10=lowest)
 5. Include diverse task types: research, planning, execution, testing, documentation
 6. Be realistic about what can be accomplished
-7. Return ONLY valid JSON, no markdown formatting
+7. Return ONLY valid JSON, no markdown formatting${historicalContext}
 
 Return format:
 {

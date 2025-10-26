@@ -2,3 +2,9 @@ project_id = "bnjthwrpigvchbhsmfec"
 
 [functions.generate-tasks]
 verify_jwt = false
+
+[functions.reflect-on-objective]
+verify_jwt = false
+
+[functions.get-learned-insights]
+verify_jwt = false

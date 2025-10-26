@@ -905,6 +905,39 @@ export type Database = {
         }
         Relationships: []
       }
+      learned_insights: {
+        Row: {
+          category: string | null
+          confidence_score: number | null
+          created_at: string
+          id: string
+          insight_text: string
+          insight_type: string
+          sample_size: number | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          insight_text: string
+          insight_type: string
+          sample_size?: number | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          insight_text?: string
+          insight_type?: string
+          sample_size?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       learning_analytics: {
         Row: {
           ai_assessment: Json | null
@@ -1601,6 +1634,48 @@ export type Database = {
         }
         Relationships: []
       }
+      objective_reflections: {
+        Row: {
+          completed_tasks: number
+          created_at: string
+          id: string
+          insights: string | null
+          objective_id: string
+          objective_title: string
+          recommendations: string | null
+          total_tasks: number
+          total_time_ms: number | null
+          what_didnt_work: string | null
+          what_worked: string | null
+        }
+        Insert: {
+          completed_tasks?: number
+          created_at?: string
+          id?: string
+          insights?: string | null
+          objective_id: string
+          objective_title: string
+          recommendations?: string | null
+          total_tasks?: number
+          total_time_ms?: number | null
+          what_didnt_work?: string | null
+          what_worked?: string | null
+        }
+        Update: {
+          completed_tasks?: number
+          created_at?: string
+          id?: string
+          insights?: string | null
+          objective_id?: string
+          objective_title?: string
+          recommendations?: string | null
+          total_tasks?: number
+          total_time_ms?: number | null
+          what_didnt_work?: string | null
+          what_worked?: string | null
+        }
+        Relationships: []
+      }
       pediatric_drug_dosages: {
         Row: {
           age_group: string | null
@@ -2081,6 +2156,42 @@ export type Database = {
           id?: string
           updated_at?: string | null
           updated_by?: string | null
+        }
+        Relationships: []
+      }
+      task_execution_history: {
+        Row: {
+          actual_time_ms: number | null
+          category: string | null
+          completed_at: string
+          estimated_time: string | null
+          id: string
+          objective_id: string
+          priority: number | null
+          task_id: string
+          task_title: string
+        }
+        Insert: {
+          actual_time_ms?: number | null
+          category?: string | null
+          completed_at?: string
+          estimated_time?: string | null
+          id?: string
+          objective_id: string
+          priority?: number | null
+          task_id: string
+          task_title: string
+        }
+        Update: {
+          actual_time_ms?: number | null
+          category?: string | null
+          completed_at?: string
+          estimated_time?: string | null
+          id?: string
+          objective_id?: string
+          priority?: number | null
+          task_id?: string
+          task_title?: string
         }
         Relationships: []
       }
