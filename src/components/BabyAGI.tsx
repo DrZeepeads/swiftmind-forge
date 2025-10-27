@@ -20,11 +20,15 @@ import {
   X,
   Download,
   BarChart3,
-  Loader2
+  Loader2,
+  MessageSquare,
+  RefreshCw
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import Analytics from './Analytics';
+import { PlanningChat } from './PlanningChat';
+import { AgentSelector } from './AgentSelector';
 
 // Types
 export interface Task {
@@ -141,10 +145,27 @@ const useStore = create<Store>()(
 );
 
 // AI-powered Task Generator
-const generateTasksWithAI = async (objective: string, description: string): Promise<{ tasks: Task[], insights?: string }> => {
+const generateTasksWithAI = async (objective: string, description: string, agentId?: string): Promise<{ tasks: Task[], insights?: string }> => {
   try {
+    let agentProfile = null;
+    if (agentId) {
+      const { data } = await supabase
+        .from('agent_profiles')
+        .select('*')
+        .eq('id', agentId)
+        .single();
+      agentProfile = data;
+    }
+
     const { data, error } = await supabase.functions.invoke('generate-tasks', {
-      body: { objective, description }
+      body: { 
+        objective, 
+        description,
+        agentProfile: agentProfile ? {
+          systemPrompt: agentProfile.system_prompt,
+          model: agentProfile.model_preference
+        } : null
+      }
     });
 
     if (error) throw error;
@@ -206,6 +227,56 @@ export default function BabyAGI() {
   const [expandedStats, setExpandedStats] = useState(true);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [loopMode, setLoopMode] = useState<'off' | 'timed'>('off');
+  const [loopInterval, setLoopInterval] = useState(10);
+  const [selectedAgentId, setSelectedAgentId] = useState<string>('');
+  const [lastEvaluation, setLastEvaluation] = useState<number>(Date.now());
+
+  // Loop mode evaluation
+  useEffect(() => {
+    if (loopMode === 'off' || !currentObjective || currentObjective.tasks.length === 0) return;
+
+    const intervalMs = loopInterval * 60 * 1000;
+    const timeSinceLastEval = Date.now() - lastEvaluation;
+    
+    if (timeSinceLastEval < intervalMs) {
+      const timeout = setTimeout(() => {
+        evaluateProgress();
+      }, intervalMs - timeSinceLastEval);
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [loopMode, loopInterval, lastEvaluation, currentObjective]);
+
+  const evaluateProgress = async () => {
+    if (!currentObjective) return;
+
+    try {
+      const { data, error } = await supabase.functions.invoke('evaluate-progress', {
+        body: {
+          objectiveId: currentObjective.id,
+          tasks: currentObjective.tasks,
+          objective: currentObjective.title
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.recommendations && data.recommendations.length > 0) {
+        const highPriority = data.recommendations.filter((r: any) => r.priority === 'high');
+        if (highPriority.length > 0) {
+          toast.warning(`${highPriority.length} high priority recommendation(s)`, {
+            description: highPriority[0].message
+          });
+        }
+      }
+
+      setLastEvaluation(Date.now());
+    } catch (err) {
+      console.error('Evaluation error:', err);
+    }
+  };
 
   // Auto-processing effect
   useEffect(() => {
@@ -256,7 +327,7 @@ export default function BabyAGI() {
     // Generate tasks with AI
     const current = useStore.getState().currentObjective;
     if (current) {
-      const { tasks, insights } = await generateTasksWithAI(newTitle, newDescription);
+      const { tasks, insights } = await generateTasksWithAI(newTitle, newDescription, selectedAgentId);
       
       useStore.setState(state => ({
         currentObjective: { ...current, tasks, aiInsights: insights },
@@ -325,6 +396,11 @@ export default function BabyAGI() {
     toast.success('Data exported successfully!');
   };
 
+  const handleChatAction = (action: any) => {
+    toast.info('Action applied: ' + action.action);
+    // TODO: Implement action handlers
+  };
+
   const stats = currentObjective ? {
     total: currentObjective.tasks.length,
     completed: currentObjective.tasks.filter(t => t.status === 'completed').length,
@@ -367,6 +443,24 @@ export default function BabyAGI() {
               >
                 <Download className="w-4 h-4" />
               </button>
+
+              <button
+                onClick={() => setChatOpen(true)}
+                className="bg-white/10 hover:bg-white/20 px-3 py-2 rounded-lg transition-all"
+                title="AI Assistant"
+              >
+                <MessageSquare className="w-4 h-4" />
+              </button>
+
+              {loopMode === 'timed' && currentObjective && (
+                <button
+                  onClick={evaluateProgress}
+                  className="bg-white/10 hover:bg-white/20 px-3 py-2 rounded-lg transition-all"
+                  title="Evaluate Now"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              )}
               
               <button
                 onClick={() => setShowNewObjective(true)}
@@ -698,6 +792,44 @@ export default function BabyAGI() {
                     className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary min-h-[100px]"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">AI Agent Style</label>
+                  <AgentSelector
+                    value={selectedAgentId}
+                    onChange={setSelectedAgentId}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Loop Mode</label>
+                    <select
+                      value={loopMode}
+                      onChange={(e) => setLoopMode(e.target.value as any)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="off">Off</option>
+                      <option value="timed">Timed Auto-Evaluation</option>
+                    </select>
+                  </div>
+
+                  {loopMode === 'timed' && (
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Interval (min)</label>
+                      <select
+                        value={loopInterval}
+                        onChange={(e) => setLoopInterval(parseInt(e.target.value))}
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="5">5 minutes</option>
+                        <option value="10">10 minutes</option>
+                        <option value="15">15 minutes</option>
+                        <option value="30">30 minutes</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
                 
                 <div className="flex gap-2">
                   <button
@@ -730,6 +862,15 @@ export default function BabyAGI() {
           </>
         )}
       </AnimatePresence>
+
+      <PlanningChat
+        objectiveId={currentObjective?.id || ''}
+        objective={currentObjective?.title || ''}
+        tasks={currentObjective?.tasks || []}
+        isOpen={chatOpen}
+        onClose={() => setChatOpen(false)}
+        onApplyAction={handleChatAction}
+      />
     </div>
   );
 }

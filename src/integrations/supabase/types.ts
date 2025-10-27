@@ -95,6 +95,7 @@ export type Database = {
       agent_logs: {
         Row: {
           agent_id: string | null
+          agent_profile_id: string | null
           created_at: string | null
           id: string
           level: string
@@ -104,6 +105,7 @@ export type Database = {
         }
         Insert: {
           agent_id?: string | null
+          agent_profile_id?: string | null
           created_at?: string | null
           id?: string
           level: string
@@ -113,6 +115,7 @@ export type Database = {
         }
         Update: {
           agent_id?: string | null
+          agent_profile_id?: string | null
           created_at?: string | null
           id?: string
           level?: string
@@ -129,6 +132,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "agent_logs_agent_profile_id_fkey"
+            columns: ["agent_profile_id"]
+            isOneToOne: false
+            referencedRelation: "agent_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "agent_logs_task_id_fkey"
             columns: ["task_id"]
             isOneToOne: false
@@ -136,6 +146,86 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      agent_performance: {
+        Row: {
+          agent_profile_id: string | null
+          avg_completion_time_ms: number | null
+          completed_tasks: number | null
+          id: string
+          last_updated: string | null
+          success_rate: number | null
+          task_category: string | null
+          total_tasks: number | null
+        }
+        Insert: {
+          agent_profile_id?: string | null
+          avg_completion_time_ms?: number | null
+          completed_tasks?: number | null
+          id?: string
+          last_updated?: string | null
+          success_rate?: number | null
+          task_category?: string | null
+          total_tasks?: number | null
+        }
+        Update: {
+          agent_profile_id?: string | null
+          avg_completion_time_ms?: number | null
+          completed_tasks?: number | null
+          id?: string
+          last_updated?: string | null
+          success_rate?: number | null
+          task_category?: string | null
+          total_tasks?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_performance_agent_profile_id_fkey"
+            columns: ["agent_profile_id"]
+            isOneToOne: false
+            referencedRelation: "agent_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_profiles: {
+        Row: {
+          color_theme: string | null
+          created_at: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          is_default: boolean | null
+          model_preference: string | null
+          name: string
+          role: string
+          system_prompt: string
+        }
+        Insert: {
+          color_theme?: string | null
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_default?: boolean | null
+          model_preference?: string | null
+          name: string
+          role: string
+          system_prompt: string
+        }
+        Update: {
+          color_theme?: string | null
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_default?: boolean | null
+          model_preference?: string | null
+          name?: string
+          role?: string
+          system_prompt?: string
+        }
+        Relationships: []
       }
       agents: {
         Row: {
@@ -1633,6 +1723,79 @@ export type Database = {
           type?: string
         }
         Relationships: []
+      }
+      objective_chat_history: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          objective_id: string | null
+          role: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          objective_id?: string | null
+          role: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          objective_id?: string | null
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "objective_chat_history_objective_id_fkey"
+            columns: ["objective_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      objective_evaluations: {
+        Row: {
+          adjustments_made: Json | null
+          confidence_score: number | null
+          created_at: string | null
+          evaluation_type: string
+          id: string
+          objective_id: string | null
+          recommendations: Json | null
+        }
+        Insert: {
+          adjustments_made?: Json | null
+          confidence_score?: number | null
+          created_at?: string | null
+          evaluation_type: string
+          id?: string
+          objective_id?: string | null
+          recommendations?: Json | null
+        }
+        Update: {
+          adjustments_made?: Json | null
+          confidence_score?: number | null
+          created_at?: string | null
+          evaluation_type?: string
+          id?: string
+          objective_id?: string | null
+          recommendations?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "objective_evaluations_objective_id_fkey"
+            columns: ["objective_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       objective_reflections: {
         Row: {

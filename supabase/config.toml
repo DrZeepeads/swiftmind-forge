@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.get-learned-insights]
 verify_jwt = false
+
+[functions.evaluate-progress]
+verify_jwt = false
+
+[functions.planning-chat]
+verify_jwt = false

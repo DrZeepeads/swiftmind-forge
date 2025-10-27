@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { objective, description } = await req.json();
+    const { objective, description, agentProfile } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -37,7 +37,7 @@ serve(async (req) => {
       ? '\n\nHistorical Learning (use this to adjust estimates):\n' + insights.map(i => `- ${i.insight_text}`).join('\n')
       : '';
 
-    const systemPrompt = `You are an AI task planning assistant. Your role is to break down objectives into actionable, specific tasks.
+const systemPrompt = `You are an AI task planning assistant. Your role is to break down objectives into actionable, specific tasks.
 
 IMPORTANT RULES:
 1. Generate exactly 8-12 tasks
@@ -47,6 +47,8 @@ IMPORTANT RULES:
 5. Include diverse task types: research, planning, execution, testing, documentation
 6. Be realistic about what can be accomplished
 7. Return ONLY valid JSON, no markdown formatting${historicalContext}
+
+${agentProfile?.systemPrompt ? `\n\nAgent Style: ${agentProfile.systemPrompt}` : ''}
 
 Return format:
 {
@@ -73,7 +75,7 @@ Generate a comprehensive task breakdown for this objective.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: agentProfile?.model || 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
