@@ -97,30 +97,42 @@ export type Database = {
           agent_id: string | null
           agent_profile_id: string | null
           created_at: string | null
+          depth_level: number | null
+          has_subtasks: boolean | null
           id: string
           level: string
           message: string
           metadata: Json | null
+          parent_task_id: string | null
+          subtask_count: number | null
           task_id: string | null
         }
         Insert: {
           agent_id?: string | null
           agent_profile_id?: string | null
           created_at?: string | null
+          depth_level?: number | null
+          has_subtasks?: boolean | null
           id?: string
           level: string
           message: string
           metadata?: Json | null
+          parent_task_id?: string | null
+          subtask_count?: number | null
           task_id?: string | null
         }
         Update: {
           agent_id?: string | null
           agent_profile_id?: string | null
           created_at?: string | null
+          depth_level?: number | null
+          has_subtasks?: boolean | null
           id?: string
           level?: string
           message?: string
           metadata?: Json | null
+          parent_task_id?: string | null
+          subtask_count?: number | null
           task_id?: string | null
         }
         Relationships: [
@@ -136,6 +148,13 @@ export type Database = {
             columns: ["agent_profile_id"]
             isOneToOne: false
             referencedRelation: "agent_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_logs_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "agent_logs"
             referencedColumns: ["id"]
           },
           {
@@ -1759,6 +1778,53 @@ export type Database = {
           },
         ]
       }
+      objective_embeddings: {
+        Row: {
+          created_at: string | null
+          embedding: string | null
+          id: string
+          key_learnings: string[] | null
+          metadata: Json | null
+          objective_description: string | null
+          objective_id: string | null
+          objective_title: string
+          summary_text: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          key_learnings?: string[] | null
+          metadata?: Json | null
+          objective_description?: string | null
+          objective_id?: string | null
+          objective_title: string
+          summary_text: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          key_learnings?: string[] | null
+          metadata?: Json | null
+          objective_description?: string | null
+          objective_id?: string | null
+          objective_title?: string
+          summary_text?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "objective_embeddings_objective_id_fkey"
+            columns: ["objective_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       objective_evaluations: {
         Row: {
           adjustments_made: Json | null
@@ -2869,6 +2935,21 @@ export type Database = {
           indication: string
           rank: number
           route: string
+        }[]
+      }
+      search_similar_objectives: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          id: string
+          key_learnings: string[]
+          objective_id: string
+          objective_title: string
+          similarity: number
+          summary_text: string
         }[]
       }
       show_limit: { Args: never; Returns: number }

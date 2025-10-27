@@ -14,3 +14,12 @@ verify_jwt = false
 
 [functions.planning-chat]
 verify_jwt = false
+
+[functions.generate-subtasks]
+verify_jwt = false
+
+[functions.store-knowledge]
+verify_jwt = false
+
+[functions.retrieve-context]
+verify_jwt = false

@@ -22,13 +22,16 @@ import {
   BarChart3,
   Loader2,
   MessageSquare,
-  RefreshCw
+  RefreshCw,
+  Lightbulb
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import Analytics from './Analytics';
 import { PlanningChat } from './PlanningChat';
 import { AgentSelector } from './AgentSelector';
+import { KnowledgePanel } from './KnowledgePanel';
+import { SubtaskTree } from './SubtaskTree';
 
 // Types
 export interface Task {
@@ -41,6 +44,9 @@ export interface Task {
   result?: string;
   category?: string;
   estimatedTime?: string;
+  parentId?: string;
+  depth?: number;
+  subtasks?: Task[];
 }
 
 export interface Objective {
@@ -232,6 +238,7 @@ export default function BabyAGI() {
   const [loopInterval, setLoopInterval] = useState(10);
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
   const [lastEvaluation, setLastEvaluation] = useState<number>(Date.now());
+  const [knowledgeOpen, setKnowledgeOpen] = useState(false);
 
   // Loop mode evaluation
   useEffect(() => {
@@ -349,7 +356,8 @@ export default function BabyAGI() {
   
   const handleReflection = async (objective: Objective) => {
     try {
-      const { data, error } = await supabase.functions.invoke('reflect-on-objective', {
+      // Store reflection
+      const { data: reflectionData, error: reflectionError } = await supabase.functions.invoke('reflect-on-objective', {
         body: {
           objectiveId: objective.id,
           objectiveTitle: objective.title,
@@ -357,17 +365,64 @@ export default function BabyAGI() {
         }
       });
       
-      if (error) {
-        console.error('Reflection failed:', error);
-        return;
+      if (reflectionError) {
+        console.error('Reflection failed:', reflectionError);
+      } else if (reflectionData?.reflection) {
+        toast.success('Objective completed! Learning captured.');
       }
+
+      // Store knowledge embeddings for future reference
+      const { error: knowledgeError } = await supabase.functions.invoke('store-knowledge', {
+        body: {
+          objectiveId: objective.id,
+          objectiveTitle: objective.title,
+          objectiveDescription: objective.description,
+          tasks: objective.tasks
+        }
+      });
       
-      if (data?.reflection) {
-        toast.success('Objective completed! Learning captured for future tasks.');
+      if (knowledgeError) {
+        console.error('Knowledge storage failed:', knowledgeError);
+      } else {
+        toast.success('Knowledge stored for future use!');
       }
     } catch (error) {
       console.error('Error during reflection:', error);
     }
+  };
+
+  const handleSubtasksGenerated = (parentId: string, subtasks: Task[]) => {
+    if (!currentObjective) return;
+
+    const addSubtasksToTask = (tasks: Task[]): Task[] => {
+      return tasks.map(task => {
+        if (task.id === parentId) {
+          return {
+            ...task,
+            subtasks: subtasks,
+            hasSubtasks: true,
+            subtaskCount: subtasks.length
+          };
+        }
+        if (task.subtasks) {
+          return {
+            ...task,
+            subtasks: addSubtasksToTask(task.subtasks)
+          };
+        }
+        return task;
+      });
+    };
+
+    const updatedTasks = addSubtasksToTask(currentObjective.tasks);
+    const updatedObjective = { ...currentObjective, tasks: updatedTasks };
+
+    useStore.setState(state => ({
+      currentObjective: updatedObjective,
+      objectives: state.objectives.map(obj =>
+        obj.id === currentObjective.id ? updatedObjective : obj
+      ),
+    }));
   };
 
   const handleExport = () => {
@@ -450,6 +505,14 @@ export default function BabyAGI() {
                 title="AI Assistant"
               >
                 <MessageSquare className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => setKnowledgeOpen(!knowledgeOpen)}
+                className="bg-white/10 hover:bg-white/20 px-3 py-2 rounded-lg transition-all"
+                title="Past Learnings"
+              >
+                <Lightbulb className="w-4 h-4" />
               </button>
 
               {loopMode === 'timed' && currentObjective && (
@@ -630,41 +693,27 @@ export default function BabyAGI() {
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <h3 className={`text-sm font-medium break-words ${
-                            task.status === 'completed' ? 'line-through text-muted-foreground' : ''
-                          }`}>
-                            {task.title}
-                          </h3>
-                          {(task.category || task.estimatedTime) && (
-                            <div className="flex items-center gap-2 mt-1">
-                              {task.category && (
-                                <span className="text-xs bg-white/5 px-2 py-0.5 rounded">
-                                  {task.category}
-                                </span>
-                              )}
-                              {task.estimatedTime && (
-                                <span className="text-xs text-muted-foreground">
-                                  ~{task.estimatedTime}
-                                </span>
-                              )}
-                            </div>
+                      <SubtaskTree
+                        task={task}
+                        depth={0}
+                        objective={currentObjective.title}
+                        onSubtasksGenerated={handleSubtasksGenerated}
+                      />
+                      {(task.category || task.estimatedTime) && (
+                        <div className="flex items-center gap-2 mt-2">
+                          {task.category && (
+                            <span className="text-xs bg-white/5 px-2 py-0.5 rounded">
+                              {task.category}
+                            </span>
                           )}
-                        </div>
-                        <span className="text-xs bg-primary/20 px-2 py-1 rounded-full whitespace-nowrap">
-                          P{task.priority}
-                        </span>
-                      </div>
-                      
-                      {task.status === 'executing' && (
-                        <div className="mt-2 w-full bg-white/10 rounded-full h-1 overflow-hidden">
-                          <motion.div
-                            className="h-full bg-gradient-to-r from-yellow-400 to-orange-400"
-                            initial={{ width: '0%' }}
-                            animate={{ width: '100%' }}
-                            transition={{ duration: 2, ease: 'linear' }}
-                          />
+                          {task.estimatedTime && (
+                            <span className="text-xs text-muted-foreground">
+                              ~{task.estimatedTime}
+                            </span>
+                          )}
+                          <span className="text-xs bg-primary/20 px-2 py-1 rounded-full">
+                            P{task.priority}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -870,6 +919,13 @@ export default function BabyAGI() {
         isOpen={chatOpen}
         onClose={() => setChatOpen(false)}
         onApplyAction={handleChatAction}
+      />
+
+      <KnowledgePanel
+        objective={newTitle}
+        description={newDescription}
+        isOpen={knowledgeOpen && showNewObjective}
+        onClose={() => setKnowledgeOpen(false)}
       />
     </div>
   );
