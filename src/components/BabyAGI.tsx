@@ -23,7 +23,8 @@ import {
   Loader2,
   MessageSquare,
   RefreshCw,
-  Lightbulb
+  Lightbulb,
+  Users
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -32,6 +33,8 @@ import { PlanningChat } from './PlanningChat';
 import { AgentSelector } from './AgentSelector';
 import { KnowledgePanel } from './KnowledgePanel';
 import { SubtaskTree } from './SubtaskTree';
+import { TeamCollaboration } from './TeamCollaboration';
+import { PerformanceInsights } from './PerformanceInsights';
 
 // Types
 export interface Task {
@@ -239,6 +242,8 @@ export default function BabyAGI() {
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
   const [lastEvaluation, setLastEvaluation] = useState<number>(Date.now());
   const [knowledgeOpen, setKnowledgeOpen] = useState(false);
+  const [teamCollabOpen, setTeamCollabOpen] = useState(false);
+  const [performanceOpen, setPerformanceOpen] = useState(false);
 
   // Loop mode evaluation
   useEffect(() => {
@@ -345,6 +350,11 @@ export default function BabyAGI() {
       
       if (insights) {
         toast.success('AI generated smart task breakdown!');
+      }
+
+      // Auto-start processing after task generation
+      if (tasks.length > 0) {
+        startProcessing();
       }
     }
     
@@ -513,6 +523,22 @@ export default function BabyAGI() {
                 title="Past Learnings"
               >
                 <Lightbulb className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => setTeamCollabOpen(true)}
+                className="bg-white/10 hover:bg-white/20 px-3 py-2 rounded-lg transition-all"
+                title="Team Collaboration"
+              >
+                <Users className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => setPerformanceOpen(true)}
+                className="bg-white/10 hover:bg-white/20 px-3 py-2 rounded-lg transition-all"
+                title="Performance Insights"
+              >
+                <TrendingUp className="w-4 h-4" />
               </button>
 
               {loopMode === 'timed' && currentObjective && (
@@ -927,6 +953,20 @@ export default function BabyAGI() {
         isOpen={knowledgeOpen && showNewObjective}
         onClose={() => setKnowledgeOpen(false)}
       />
+
+      {teamCollabOpen && (
+        <TeamCollaboration
+          currentObjective={currentObjective}
+          onClose={() => setTeamCollabOpen(false)}
+        />
+      )}
+
+      {performanceOpen && (
+        <PerformanceInsights
+          currentObjective={currentObjective}
+          onClose={() => setPerformanceOpen(false)}
+        />
+      )}
     </div>
   );
 }

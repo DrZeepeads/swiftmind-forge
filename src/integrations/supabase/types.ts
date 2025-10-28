@@ -2099,6 +2099,33 @@ export type Database = {
           },
         ]
       }
+      performance_predictions: {
+        Row: {
+          confidence_score: number | null
+          created_at: string
+          id: string
+          objective_id: string
+          predicted_completion_time: number | null
+          recommended_optimizations: Json | null
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          objective_id: string
+          predicted_completion_time?: number | null
+          recommended_optimizations?: Json | null
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          objective_id?: string
+          predicted_completion_time?: number | null
+          recommended_optimizations?: Json | null
+        }
+        Relationships: []
+      }
       plugins: {
         Row: {
           category: string
@@ -2358,6 +2385,50 @@ export type Database = {
           },
         ]
       }
+      shared_objectives: {
+        Row: {
+          id: string
+          objective_description: string | null
+          objective_id: string
+          objective_title: string
+          shared_at: string
+          shared_by: string
+          status: string
+          tasks: Json | null
+          team_id: string
+        }
+        Insert: {
+          id?: string
+          objective_description?: string | null
+          objective_id: string
+          objective_title: string
+          shared_at?: string
+          shared_by: string
+          status?: string
+          tasks?: Json | null
+          team_id: string
+        }
+        Update: {
+          id?: string
+          objective_description?: string | null
+          objective_id?: string
+          objective_title?: string
+          shared_at?: string
+          shared_by?: string
+          status?: string
+          tasks?: Json | null
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_objectives_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_config: {
         Row: {
           config_key: string
@@ -2473,6 +2544,65 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      team_members: {
+        Row: {
+          id: string
+          joined_at: string
+          role: string
+          team_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          role?: string
+          team_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          role?: string
+          team_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       user_preferences: {
         Row: {
