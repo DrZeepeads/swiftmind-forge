@@ -352,9 +352,11 @@ export default function BabyAGI() {
         toast.success('AI generated smart task breakdown!');
       }
 
-      // Auto-start processing after task generation
+      // Auto-start processing after task generation with small delay to ensure state is updated
       if (tasks.length > 0) {
-        startProcessing();
+        setTimeout(() => {
+          startProcessing();
+        }, 100);
       }
     }
     
