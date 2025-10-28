@@ -290,11 +290,17 @@ export default function BabyAGI() {
     }
   };
 
-  // Auto-processing effect
+  // Auto-processing effect - processes tasks sequentially
   useEffect(() => {
     if (!isProcessing || !currentObjective) return;
     
     const pendingTasks = currentObjective.tasks.filter(t => t.status === 'pending');
+    const executingTasks = currentObjective.tasks.filter(t => t.status === 'executing');
+    
+    // If there are already executing tasks, wait for them to complete
+    if (executingTasks.length > 0) return;
+    
+    // If no pending tasks, check if we're done
     if (pendingTasks.length === 0) {
       pauseProcessing();
       
@@ -305,29 +311,36 @@ export default function BabyAGI() {
       return;
     }
     
+    // Process the next pending task
     const nextTask = pendingTasks[0];
-    const taskIndex = currentObjective.tasks.findIndex(t => t.id === nextTask.id);
     
-    // Update task to executing
-    useStore.setState(state => {
-      if (!state.currentObjective) return state;
-      const updatedTasks = [...state.currentObjective.tasks];
-      updatedTasks[taskIndex] = { ...updatedTasks[taskIndex], status: 'executing' };
-      const updatedObjective = { ...state.currentObjective, tasks: updatedTasks };
-      return {
-        currentObjective: updatedObjective,
-        objectives: state.objectives.map(obj =>
-          obj.id === state.currentObjective?.id ? updatedObjective : obj
-        ),
-      };
-    });
-    
-    // Simulate task execution
-    const timer = setTimeout(() => {
+    // Immediately mark as executing and start processing
+    const processTask = async () => {
+      // Update to executing
+      useStore.setState(state => {
+        if (!state.currentObjective) return state;
+        const updatedTasks = state.currentObjective.tasks.map(task =>
+          task.id === nextTask.id
+            ? { ...task, status: 'executing' as const }
+            : task
+        );
+        const updatedObjective = { ...state.currentObjective, tasks: updatedTasks };
+        return {
+          currentObjective: updatedObjective,
+          objectives: state.objectives.map(obj =>
+            obj.id === state.currentObjective?.id ? updatedObjective : obj
+          ),
+        };
+      });
+      
+      // Simulate task execution (faster: 1-2 seconds)
+      await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
+      
+      // Complete the task
       completeTask(nextTask.id);
-    }, 2000 + Math.random() * 2000);
+    };
     
-    return () => clearTimeout(timer);
+    processTask();
   }, [isProcessing, currentObjective, completeTask, pauseProcessing]);
 
   const handleCreateObjective = async () => {
